@@ -1,0 +1,24 @@
+#-----------------------------------------------------------
+# Vivado v2026.1 (64-bit)
+# SW Build 6511674 on Tue Jun 16 11:01:26 MDT 2026
+# IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026
+# SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026
+# Start of session at: Tue Sep 15 00:09:31 2026
+# Process ID         : 2915418
+# Current directory  : /home/shay/a/zhan4833/SURF Research/rfsoc4x2_flash_poc
+# Command line       : vivado -mode batch -source bitstream_nonproject_gen.tcl -log build/bitstream_nonproject_gen.log -journal build/bitstream_nonproject_gen.jou -tclargs test_tooling 8  
+# Log file           : /home/shay/a/zhan4833/SURF Research/rfsoc4x2_flash_poc/build/bitstream_nonproject_gen.log
+# Journal file       : /home/shay/a/zhan4833/SURF Research/rfsoc4x2_flash_poc/build/bitstream_nonproject_gen.jou
+# Running On         : ececomp2.ecn.purdue.edu
+# Platform           : OracleServer
+# Operating System   : Oracle Linux Server release 8.10
+# Processor Detail   : AMD EPYC 7513 32-Core Processor
+# CPU Frequency      : 2595.235 MHz
+# CPU Physical cores : 64
+# CPU Logical cores  : 128
+# Host memory        : 539936 MB
+# Swap memory        : 68719 MB
+# Total Virtual      : 608655 MB
+# Available Virtual  : 514674 MB
+#-----------------------------------------------------------
+source bitstream_nonproject_gen.tcl

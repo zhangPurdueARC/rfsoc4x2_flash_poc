@@ -1,0 +1,93 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use File::Spec;
+use File::Basename;
+
+my %PROCESSED_MODULES;
+my @FILE_LIST;
+
+
+if (@ARGV != 3) {
+    die "Usage: $0 <top_module> <src_dir> <output_file>\n";
+}
+
+my ($TOP_MODULE, $SRC_DIR, $OUTPUT_FILE) = @ARGV;
+
+find_dependencies($TOP_MODULE);
+
+my $output_dir = dirname($OUTPUT_FILE);
+unless (-d $output_dir) {
+    mkdir $output_dir or die "Could not create directory '$output_dir': $!\n";
+}
+
+my %seen;
+my @unique_files = grep { !$seen{$_}++ } @FILE_LIST;
+
+open(my $fh, '>', $OUTPUT_FILE) or die "Could not open file '$OUTPUT_FILE' for writing: $!\n";
+
+my $timestamp = localtime();
+print $fh "# Auto-generated file list for top-level: $TOP_MODULE\n";
+print $fh "# Generated on: $timestamp\n\n";
+
+foreach my $file (@unique_files) {
+    print $fh "$file\n";
+}
+
+close $fh;
+
+print "INFO: File list successfully generated at '$OUTPUT_FILE'\n";
+
+sub find_dependencies {
+    my ($module_name) = @_;
+
+    my %KEYWORDS_TO_IGNORE = map { $_ => 1 } qw(
+        module input output wire reg logic always_ff always_comb initial assign function task
+        begin end else endmodule if case endcase
+    );
+
+    return if exists $PROCESSED_MODULES{$module_name};
+    $PROCESSED_MODULES{$module_name} = 1;
+
+    my $module_file_path = File::Spec->catfile($SRC_DIR, "${module_name}.sv");
+
+    return unless -f $module_file_path;
+
+    my $content = do {
+        open my $fh, '<', $module_file_path or die "Could not open $module_file_path: $!";
+        local $/;
+        <$fh>;
+    };
+
+    # normalize all line endings (CRLF to LF) to prevent parsing errors
+    $content =~ s/\r\n/\n/g;
+
+    # Comment removal
+    $content =~ s|//.*||g;
+    $content =~ s|/\*.*?\*/||sg;
+
+    while (
+        $content =~ /
+            \b
+            ([a-zA-Z_][a-zA-Z_0-9]*)            # Capture Group 1: The module type
+            \s*
+            (?: \# \s* \( [^;]*? \) )?          # Optional parameters (cannot contain a semicolon)
+            \s+
+            ([a-zA-Z_][a-zA-Z_0-9]*)            # Capture Group 2: The instance name
+            \s*
+            \( [^;]*? \)                        # The port list (cannot contain a semicolon)
+            \s*
+            ;?                                  # Semicolon is optional
+        /sgmx
+    ) {
+        my $potential_module = $1;
+        my $instance_name    = $2;
+
+        unless (exists $KEYWORDS_TO_IGNORE{$potential_module}) {
+            find_dependencies($potential_module);
+        }
+    }
+
+    push @FILE_LIST, $module_file_path;
+}

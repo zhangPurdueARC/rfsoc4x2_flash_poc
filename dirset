@@ -1,0 +1,60 @@
+#!/bin/csh -f
+
+# For ECE437L : Computer Design and Prototyping
+# Written by: Shawn Davidson Eric Villasenor
+
+# The following script is used in order to create the correct directory
+# structure for ECE437L when used in conjunction with the setup files in the
+# ~ee495a/Class directory.
+
+# The following checks for the existence of the direcotry structure that is
+# required.
+
+# set config directory
+set ECE437L_CONFIGS="/home/ecegridfs/a/ece437l/tools/configs";
+
+# set directory structure
+echo ""
+echo "Checking directory structure."
+foreach dir ( asmFiles fpga include mapped scripts source testbench )
+  if (! -d $dir) then
+    echo "  Making directory $dir"
+    mkdir $dir
+  endif
+end
+echo "Directory structure complete."
+echo ""
+
+# configs
+if (! -e modelsim.ini) then
+  echo "Copying Modelsim config."
+  ln -s $ECE437L_CONFIGS/modelsim.ini ./modelsim.ini
+  echo ""
+else
+  diff $ECE437L_CONFIGS/modelsim.ini ./modelsim.ini > /dev/null
+  if ($status == 0) then
+    echo "modelsim.ini up to date."
+    echo ""
+  else
+    echo "Copying Modelsim config."
+    rm -f ./modelsim.ini
+    ln -s $ECE437L_CONFIGS/modelsim.ini ./modelsim.ini
+    echo ""
+  endif
+endif
+
+if (! -e Makefile) then
+  echo "Copying Makefile."
+  ln -s $ECE437L_CONFIGS/Makefile_hdl ./Makefile
+  echo ""
+else
+  diff $ECE437L_CONFIGS/Makefile_hdl ./Makefile > /dev/null
+  if ($status == 0) then
+    echo "Makefile up to date."
+  else
+    echo "Copying Makefile."
+    rm -f ./Makefile
+    ln -s $ECE437L_CONFIGS/Makefile_hdl ./Makefile
+    echo ""
+  endif
+endif

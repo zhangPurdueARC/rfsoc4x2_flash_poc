@@ -1,0 +1,199 @@
+#!/bin/bash
+cleanup() {
+    local ram_source="source/ram.sv"
+
+    if [[ -f "$ram_source" ]]; then
+        sed -i '/^[[:space:]]*`ifdef SYNTH_FPGA$/,/^[[:space:]]*`endif$/d' "$ram_source"
+    fi
+}
+
+on_interrupt() {
+    echo -e '\nInterrupted by user. Exiting.'
+    exit 1
+}
+
+set -e
+trap cleanup EXIT
+trap on_interrupt INT TERM
+
+# default
+program_fpga_flag=false
+project_mode=false
+timing=""
+dump_memory_flag=false
+top=""
+clock_period_ns=""
+num_cpus=8
+ssh_mode=false
+
+# help
+usage() {
+    echo "Usage: synthesize_xilinx [options] <top_module>"
+    echo ""
+    echo "Options:"
+    echo "  -c                 Clean the build directory and exit"
+    echo "  -d                 Enable program bitstream step"
+    echo "  -p                 Enable project mode (enables caching)"
+    echo "  -s                 Enable remote synthesis on an ececomp server if not already on one"
+    echo "  -m                 Dump BRAM contents to file after programming (requires -d)"
+    echo "  -t                 Enable timing netlist generation, supported only in project mode"
+    echo "  -f <freq_mhz>      Set a target frequency in MHz for the MAIN (RAM) clock (default at 100)"
+    echo "  -j <num_cpus>      Set the number of CPUs for synthesis/implementation (default: 8)"
+    echo "  -h                 Show this help message"
+    echo ""
+    echo "Example (cached build): synthesize_xilinx -p -d -t system_fpga"
+    echo "Example (remote synthesis): synthesize_xilinx -s -p system_fpga"
+    echo "Example (16 CPUs): synthesize_xilinx -p -j 16 system_fpga"
+    exit 0
+}
+
+# option parser
+while getopts "cdpmsthf:j:" opt; do
+    case "$opt" in
+        c)
+            echo "Cleaning build directory and log files..."
+            rm -rf build
+            echo "Clean complete."
+            ;;
+        d) program_fpga_flag=true ;;
+        p) project_mode=true ;;
+        m) dump_memory_flag=true ;;
+        s) ssh_mode=true ;;
+        t) timing="timing" ;;
+        f)
+            target_freq_mhz="$OPTARG"
+            clock_period_ns=$(printf "%.3f" $(echo "1000 / $target_freq_mhz" | bc -l))
+            echo "Target frequency set to ${target_freq_mhz}MHz (Period: ${clock_period_ns}ns)."
+            ;;
+        j)
+            num_cpus="$OPTARG"
+            ;;
+        h) usage ;;
+        \?) usage ;;
+    esac
+done
+
+if $dump_memory_flag && ! $program_fpga_flag; then
+    echo "Error: Memory dump (-m) requires the device to be programmed (-d)."
+    usage
+fi
+
+shift $((OPTIND - 1))
+top="$1"
+meminit_file="meminit.hex"
+
+if [ -z "$top" ]; then
+    echo "Error: No top module name provided."
+    usage
+fi
+
+# main logic
+mkdir -p build
+
+# project vs. non-project mode
+if $project_mode; then
+    file_heading="bitstream_project"
+else
+    file_heading="bitstream_nonproject"
+fi
+
+# check fpga
+if $program_fpga_flag; then
+    echo "Checking for FPGA connection before synthesis..."
+    vivado -mode batch -nolog -nojournal -source check_fpga.tcl \
+        || { echo "Error: FPGA pre-check failed. Aborting script."; exit 1; }
+    echo "FPGA connection successful."
+fi
+
+# specific handling for system/system_fpga
+
+#add readmemh(meminit.mem) in system_fpga if it is top
+if [[ "$top" == "system_fpga" ]] && ! grep -qF '$readmemh' source/ram.sv; then
+    echo 'Adding $readmemh to ram.sv'
+
+    awk 'NR==43 {
+        print " `ifdef SYNTH_FPGA"
+        print "     initial begin"
+        print "         $readmemh(\"meminit.mem\", mem);"
+        print "     end"
+        print " `endif"
+    }
+    { print }' source/ram.sv > source/ram.sv.tmp && mv source/ram.sv.tmp source/ram.sv
+fi
+
+if [[ ("$top" == "system_fpga" || "$top" == "system") && -f "$meminit_file" ]]; then
+    if [[ ! -f "$meminit_file" && "$top" == "system_fpga" ]]; then
+        echo "Error: $meminit_file not found. Exiting."
+        exit 1
+    fi
+    echo "Found '$top' module, converting $meminit_file to meminit.mem..."
+    /home/ecegrid/a/ece437l/tools/vivado_extra/hex_to_mem meminit.hex > meminit.mem
+fi
+
+# filelist generation
+echo "Generating filelist for Vivado..."
+gen_script="generate_filelist"
+filelist="build/design.f"
+$gen_script "$top" ./source $filelist
+sleep 5
+# bitstream gen
+if "$ssh_mode"; then
+    if ! [[ "$(hostname)" =~ ^ececomp[0-9]+\.ecn\.purdue\.edu$ ]]; then
+        echo "Not on an ececomp machine. Running Vivado synthesis remotely on ececomp..."
+
+        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ececomp "cd $PWD && vivado -mode batch -source /home/ecegrid/a/ece437l/tools/vivado_extra/${file_heading}_gen.tcl -log build/${file_heading}_gen.log -journal build/${file_heading}_gen.jou -tclargs \"$top\" \"$num_cpus\" \"$timing\" \"$clock_period_ns\""
+
+        echo "Remote execution finished. To program the FPGA, you may need to sync the 'build' directory"
+        echo "and re-run the script locally with programming flags (e.g., -d) and without the -s flag."
+    else
+        echo "Running on ececomp machine, proceeding with synthesis..."
+    fi
+else
+    echo "Running Vivado synthesis locally..."
+    vivado -mode batch \
+        -source ${file_heading}_gen.tcl \
+        -log build/${file_heading}_gen.log \
+        -journal build/${file_heading}_gen.jou \
+        -tclargs "$top" "$num_cpus" "$timing" "$clock_period_ns"
+fi
+echo "Vivado Synthesis and Implementation successful."
+
+if $ssh_mode; then
+    if [[ "$(hostname)" =~ ^ececomp[0-9]+\.ecn\.purdue\.edu$ ]]; then
+        echo "Remote synthesis on $(hostname) complete. Exiting remote session."
+        exit 0
+    fi
+fi
+
+# bitstream dl
+if $program_fpga_flag; then
+    echo "Programming the FPGA..."
+    vivado -mode batch \
+        -source /home/ecegrid/a/ece437l/tools/vivado_extra/${file_heading}_dl.tcl \
+        -log build/${file_heading}_dl.log \
+        -journal build/${file_heading}_dl.jou \
+        -tclargs "$top" \
+        || { echo "Error: Vivado programming failed. See build/${file_heading}_dl.log for details."; exit 1; }
+    echo "FPGA programmed successfully."
+fi
+
+# memory dump
+if $dump_memory_flag; then
+    echo "Waiting for CPU execution (5s)..."
+    sleep 5
+
+    echo "Dumping BRAM contents..."
+    vivado -mode batch \
+        -source /home/ecegrid/a/ece437l/tools/vivado_extra/dump_memory.tcl \
+        -log build/dump_memory.log \
+        -journal build/dump_memory.jou \
+        || { echo "Error: Memory dump failed. See build/dump_memory.log for details."; exit 1; }
+
+    echo "Waiting for memory dump and starting conversion (3s)..."
+    sleep 3
+
+    /home/ecegrid/a/ece437l/tools/vivado_extra/mem_to_hex memfpga.mem > memfpga.hex
+    echo "Memory dump converted to memfpga.hex."
+fi
+
+echo "synthesize_xilinx finished."

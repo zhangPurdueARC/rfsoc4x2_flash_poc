@@ -1,0 +1,53 @@
+#!/usr/local/bin/perl
+# =============================================================================
+# author      : Eric Villasenor
+# email       : evillase@gmail.com
+# version     : 1.1
+# date        : 2013_08_06
+#
+# This script will find dependencies for a file in given dirs.
+# First arg is filename to find deps, next args are directories.
+# Returns a list of deps in a nice order. cmdline option -p to give full path
+#
+# -Known issues
+# none
+# =============================================================================
+
+use File::Basename;
+use strict;
+use warnings;
+
+exit if (not (@ARGV >= 2));
+my $p = ($ARGV[0] =~ /-p/) and shift @ARGV // 0;
+for (1..$#ARGV) {$ARGV[$_] .= "/*.{sv,v,vh,vhd}" if -d $ARGV[$_] or exit;}
+my $top = fileparse($ARGV[0], qr/\.[^.]*/); # get top level module without ext
+my (%m, %h, %d, @w); # mappings and queues
+%m = map {(fileparse($_, qr/\.[^.]*/))[0] => $_} glob("@ARGV[1..$#ARGV]");
+$/ = undef; # unset input record seperator
+foreach (keys %m) {
+  my $f = `cat $m{$_}`; # read file
+  # remove comments /**/ and //
+  $f =~ s#/\*[^*]*\*+([^/*][^*]*\*+)*/|("(\\.|[^"\\])*"|'(\\.|[^'\\])*'|.[^/"'\\]*)#defined $2 ? $2 : ""#gse;
+  $f =~ s#\/\/[^\n]*##g;
+  push @{$h{$_}}, ();
+  foreach my $t (keys %m) {
+    next if ($_ eq $t); # break recursion on self call
+    # included files
+    push @{$h{$_}}, $t and next if ($f =~ m/include\s+"$t\.\w+"/);
+    # imported packages
+    push @{$h{$_}}, $t and next if ($f =~ m/import\s+$t\s*:/);
+    # instantiated modules
+    push @{$h{$_}}, $t if ($f =~ m/[\n]\s*$t\s/);
+  }
+}
+#mcj pre 8/20/2015 code:  @w = (defined @{$h{$top}}) ? @{$h{$top}} : (); # set initial work list
+#mcj 8/20/2015 @w = (defined $h{$top}) ? @{$h{$top}} : (); # set initial work list
+#mcj 8/20/2015 @w = (exists($h{$top})) ? @{$h{$top}} : (); # set initial work list
+@w = ($h{$top}) ? @{$h{$top}} : (); # set initial work list
+while (@w) { # TODO work loop could be more efficient
+  shift @w and next if (exists $d{$w[0]});
+  $d{$w[0]} = 1; # dedup and remove cycles
+  push @w, @{$h{shift @w}}; #push files on work list
+}
+print $p ? "@{[map {$m{$_} =~ s/\/\//\//;$m{$_}} sort keys %d]}\n" :
+"@{[map {$m{$_} =~ m/($_\.[^.]*)/;$1} sort keys %d]}\n";
