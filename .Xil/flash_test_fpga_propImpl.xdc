@@ -1,4 +1,5 @@
 set_property SRC_FILE_INFO {cfile:{/home/shay/a/zhan4833/SURF Research/rfsoc4x2_flash_poc/4x2_PL_FULL_CONSTRAINTS/4x2_LED_PB__SW.xdc} rfile:../4x2_PL_FULL_CONSTRAINTS/4x2_LED_PB__SW.xdc id:1} [current_design]
+set_property SRC_FILE_INFO {cfile:{/home/shay/a/zhan4833/SURF Research/rfsoc4x2_flash_poc/4x2_PL_FULL_CONSTRAINTS/clock_constraint.xdc} rfile:../4x2_PL_FULL_CONSTRAINTS/clock_constraint.xdc id:2} [current_design]
 set_property src_info {type:XDC file:1 line:2 export:INPUT save:INPUT read:READ} [current_design]
 set_property PACKAGE_PIN AR11 [ get_ports "W_LED_0" ]
 set_property src_info {type:XDC file:1 line:5 export:INPUT save:INPUT read:READ} [current_design]
@@ -23,3 +24,7 @@ set_property src_info {type:XDC file:1 line:50 export:INPUT save:INPUT read:READ
 set_property PACKAGE_PIN AN13 [ get_ports "SW_0" ]
 set_property src_info {type:XDC file:1 line:53 export:INPUT save:INPUT read:READ} [current_design]
 set_property PACKAGE_PIN AU12 [ get_ports "SW_1" ]
+set_property src_info {type:XDC file:2 line:4 export:INPUT save:INPUT read:READ} [current_design]
+set_property PACKAGE_PIN AM15 [ get_ports sys_clk_100m_p]
+set_property src_info {type:XDC file:2 line:6 export:INPUT save:INPUT read:READ} [current_design]
+set_property PACKAGE_PIN AN15 [ get_ports sys_clk_100m_n]

@@ -47,14 +47,16 @@ foreach line [split $f_content "\n"] {
 
 # 3. Constraint & Configuration Handling
 # --------------------------------------
-if {[string match "*_fpga" $design_top]} { lappend main_xdc_files "4x2_PL_FULL_CONSTRAINTS/4x2_1PPS.xdc"  "4x2_PL_FULL_CONSTRAINTS/4x2_LED_PB__SW.xdc"  "4x2_PL_FULL_CONSTRAINTS/4x2_PL_DDR4.xdc"  "4x2_PL_FULL_CONSTRAINTS/4x2_PMOD.xdc"  "4x2_PL_FULL_CONSTRAINTS/4x2_QSFP.xdc"  "4x2_PL_FULL_CONSTRAINTS/4x2_SYZYGY.xdc"}
+if {[string match "*_fpga" $design_top]} { lappend main_xdc_files "4x2_PL_FULL_CONSTRAINTS/4x2_1PPS.xdc"  "4x2_PL_FULL_CONSTRAINTS/4x2_LED_PB__SW.xdc"  "4x2_PL_FULL_CONSTRAINTS/4x2_PL_DDR4.xdc"  "4x2_PL_FULL_CONSTRAINTS/4x2_PMOD.xdc"  "4x2_PL_FULL_CONSTRAINTS/4x2_QSFP.xdc"  "4x2_PL_FULL_CONSTRAINTS/4x2_SYZYGY.xdc" "4x2_PL_FULL_CONSTRAINTS/clock_constraint.xdc"}
 if {$do_timing} {
     set generated_xdc_path "$output_dir/generated_clock.xdc"; puts "INFO: Generating clock constraint file: $generated_xdc_path"
     set f [open $generated_xdc_path "w"]
     set target_period 10.0; if { $clock_period ne "" } { set target_period $clock_period }
     set half_period [expr {$target_period / 2.0}]; set clk_port_name "CLK"
-    if {[string match "*_fpga" $design_top]} { set clk_port_name "CLK_FPGA" }
-    puts $f "create_clock -period $target_period -name MAIN -waveform {0.000 $half_period} \[get_ports $clk_port_name\]"
+    if {[string match "*_fpga" $design_top]} { 
+        puts $f "create_clock -period $target_period -name sys_clk_100m_p -waveform {0.000 $half_period} \[get_ports sys_clk_100m_p\]"
+        puts $f "create_clock -period $target_period -name sys_clk_100m_n -waveform {0.000 $half_period} \[get_ports sys_clk_100m_n\]"
+    } else { puts $f "create_clock -period $target_period -name MAIN -waveform {0.000 $half_period} \[get_ports $clk_port_name\]" }
     if {$design_top == "system_fpga"} { puts $f "create_generated_clock -name CPUCLK -source \[get_ports CLK_FPGA\] -divide_by 2 \[get_nets SYS/CPUCLK\]"
     } elseif {$design_top == "system"} { puts $f "create_generated_clock -name CPUCLK -source \[get_ports CLK\] -divide_by 2 \[get_nets CPUCLK\]" }
     close $f; lappend main_xdc_files $generated_xdc_path

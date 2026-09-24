@@ -2,12 +2,12 @@
 # Vivado v2022.2 (64-bit)
 # SW Build 3671981 on Fri Oct 14 04:59:54 MDT 2022
 # IP Build 3669848 on Fri Oct 14 08:30:02 MDT 2022
-# Start of session at: Wed Sep 23 23:47:24 2026
-# Process ID: 1059252
+# Start of session at: Thu Sep 24 14:01:27 2026
+# Process ID: 3457970
 # Current directory: /home/shay/a/zhan4833/SURF Research/rfsoc4x2_flash_poc
 # Command line: vivado -mode batch -source bitstream_nonproject_gen.tcl -log build/bitstream_nonproject_gen.log -journal build/bitstream_nonproject_gen.jou -tclargs flash_test_fpga 8 timing 5.000
 # Log file: /home/shay/a/zhan4833/SURF Research/rfsoc4x2_flash_poc/build/bitstream_nonproject_gen.log
 # Journal file: /home/shay/a/zhan4833/SURF Research/rfsoc4x2_flash_poc/build/bitstream_nonproject_gen.jou
-# Running On: ececomp2.ecn.purdue.edu, OS: Linux, CPU Frequency: 3454.143 MHz, CPU Physical cores: 32, Host memory: 539936 MB
+# Running On: ececomp2.ecn.purdue.edu, OS: Linux, CPU Frequency: 2595.235 MHz, CPU Physical cores: 32, Host memory: 539936 MB
 #-----------------------------------------------------------
 source bitstream_nonproject_gen.tcl

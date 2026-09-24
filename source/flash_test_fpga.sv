@@ -2,7 +2,8 @@
 
 // this is a simple unsigned adder as a proof of concept for FPGA work
 module flash_test_fpga (
-    input logic CLK_FPGA, // CLK synth is weird... 
+    input logic sys_clk_100m_p, // CLK synth is weird... 
+    input logic sys_clk_100m_n, // due to RFSoC 4x2 largely supporting 
     input logic PB_0, // acts as select for write
     input logic PB_1, // acts as update signal
     input logic PB_4, // acts as nRST 
@@ -16,9 +17,15 @@ module flash_test_fpga (
     output logic W_LED_1, // output bit one
     output logic W_LED_2  // output bit two
 );
+    IBUFDS ibufds_inst (
+        .I(sys_clk_100m_p),   // Connects to external positive pin
+        .IB(sys_clk_100m_n),  // Connects to external negative pin
+        .O(sys_clk)  // This is your single-ended internal clock wire
+    );
+
     logic unsigned [1:0] val1, val2;
 
-    always_ff @(posedge CLK_FPGA, negedge PB_4) begin
+    always_ff @(posedge sys_clk, negedge PB_4) begin
         if (!PB_4) begin
             val1 <= 0;
             val2 <= 0;
@@ -32,7 +39,7 @@ module flash_test_fpga (
     logic unsigned [2:0] result;
     assign result = val1 + val2;
 
-    always_ff @(posedge CLK_FPGA, negedge PB_4) begin
+    always_ff @(posedge sys_clk, negedge PB_4) begin
         if (!PB_4) begin
             R_LED_0 <= 0;
             R_LED_1 <= 0;
